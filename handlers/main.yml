@@ -1,10 +1,10 @@
 # file: nginx/handlers/main.yml
 
-- name: restart nginx
+- name:    restart nginx
   service: name=nginx state=restarted
-  sudo: yes
-  when: not nginx_first_start.changed
 
-- name: reload nginx
+- name:    reload nginx
   service: name=nginx state=reloaded
-  sudo: yes
+
+- name:    restart monit
+  service: name=monit state=restarted

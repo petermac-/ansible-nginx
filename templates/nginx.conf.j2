@@ -20,11 +20,10 @@ events {
 {% endif %}
 }
 
+
 http {
-{% if nginx_install_method == "source" %}
-{% if nginx_source_modules_included.naxsi_module is defined %}
+{% if nginx_modules.naxsi_module is defined and nginx_modules.naxsi_module == true %}
   include       {{nginx_dir}}/naxsi_core.rules;
-{% endif %}
 {% endif %}
 
   include       {{nginx_dir}}/mime.types;
@@ -38,10 +37,8 @@ http {
   access_log    off;
 {% else %}
 {% for log in nginx_access_logs %}
-{% if 'format' in log %}
   log_format  {{log['name']}}  {{log['format']}};
-{% endif %}
-  access_log    {{nginx_log_dir}}/{{log['filename']}} {{log['name']}}{% if 'options' in log and log['options']|lower != 'none' %} {{log['options']}}{% endif %};
+  access_log    {{nginx_log_dir}}/{{log['filename']}} {{log['name']}}{% if log['options'] %} {{log['options']}}{% endif %};
 {% endfor %}
 {% endif %}
 {% if nginx_server_tokens %}
@@ -72,13 +69,6 @@ http {
   gzip_types {{nginx_gzip_types|join(' ')}};
   gzip_min_length {{nginx_gzip_min_length}};
   gzip_disable     "{{nginx_gzip_disable}}";
-{% endif %}
-
-{% if nginx_install_method == "source" %}
-{% if nginx_geoip == 'on' %}
-  geoip_country {{nginx_geoip_country}};
-  geoip_city {{nginx_geoip_city}};
-{% endif %}
 {% endif %}
 
 {% if nginx_buffers == 'on' %}

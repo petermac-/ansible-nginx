@@ -1,0 +1,34 @@
+---
+# file: nginx/tasks/modules_configure.yml
+
+- include: modules_configure/http_stub_status_module.yml
+
+- include: modules_configure/http_ssl_module.yml
+
+- include: modules_configure/http_gzip_static_module.yml
+
+- include: modules_configure/upload_progress_module.yml
+
+- include: modules_configure/headers_more_module.yml
+
+- include: modules_configure/http_auth_request_module.yml
+
+- include: modules_configure/http_echo_module.yml
+
+- include: modules_configure/google_perftools_module.yml
+
+- include: modules_configure/ipv6_module.yml
+
+- include: modules_configure/http_realip_module.yml
+
+- include: modules_configure/http_spdy_module.yml
+
+- include: modules_configure/naxsi_module.yml
+
+- include: modules_configure/ngx_pagespeed_module.yml
+
+- include: modules_configure/geoip_module.yml
+
+- include: modules_configure/passenger_module.yml
+
+

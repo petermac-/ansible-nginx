@@ -1,12 +1,13 @@
-# file: nginx/tasks/main.yml
+---
+- include: 'prepare.yml'
 
-- include: package.yml
-  when: nginx_install_method == "package"
-- include: source.yml
-  when: nginx_install_method == "source"
-- include: scripts.yml
-- include: configure.yml
-- include: default_site.yml
-- include: sites.yml
-- include: monit.yml
-  when: monit_protection is defined and monit_protection == true
+- include: 'install.yml'
+  when: old_checksum.stdout != new_checksum.stdout
+
+- name: Nginx Configure | Set current checksum
+  command: "mv '{{nginx_dir}}/.nginx_compile_configuration.new' '{{nginx_dir}}/.nginx_compile_configuration'"
+
+- name: Nginx Configure | Set current user checksum
+  command: "mv '{{nginx_dir}}/.nginx_user_configuration.new' '{{nginx_dir}}/.nginx_user_configuration'"
+
+- include: 'configure.yml'

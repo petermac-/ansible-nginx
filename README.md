@@ -1,18 +1,25 @@
-## ANXS - nginx [![Build Status](https://travis-ci.org/ANXS/nginx.svg?branch=master)](https://travis-ci.org/ANXS/nginx)
+## Ansible Nginx Role - Overview
+ 
+Ansible role which installs and configures Nginx, from source.
 
-Ansible role which installs and configures Nginx, from a package or from source (including a series of optional modules).
+This is based largely on the ANXS/nginx ansible role with some major differences/improvements:
 
+- Installation from source is the only available installation option
+- Support for Passenger and GeoIP modules, as well as those supported by anxs/nginx
+- Properly removes config files if reinstalled without modules that were previously present
+- site configuration with reasonable SSL settings by default when ssl cert/key are specified
+- Site configuration that can set multiple directives with the same name
+- Monit support is controlled by nginx_monit_protection parameter and properly enabled/disabled by this variable
+- Latest compile parameters are not saved until after installation, so if something goes wrong we know what current binary was built with
+- Modules are enabled/disabled by single parameters, not list of modules, so single modules can be enabled/disabled relative to defaults without specifying entire list of modules
+- Modules are enabled/disabled without specifying entire configure flag, just true/false
+- Nginx can be compiled so server header string is set to a random string, or custom text
 
 #### Requirements & Dependencies
 
 ##### Ansible
 
-It has been tested on Ansible 1.5 and above, and depends on the following roles:
-  - ANXS.apt
-  - ANXS.build-essential
-  - ANXS.perl
-  - ANXS.monit (if you want monit protection)
-
+This role has been tested on Ansible 1.5 and above
 
 ##### Platforms
 
@@ -21,9 +28,47 @@ Currently it's been developed for, and tested on Ubuntu. It is assumed to work o
 
 #### Variables
 
-##### default (nginx.conf)
+##### build parameters
+- `nginx_version` - the version of Nginx to install
+- `nginx_url` - URL for the Nginx source (versioned). By default it will get it from `nginx_source_version`
+- `nginx_prefix` - prefix for installing nginx from source (versioned)
+- `nginx_conf_path` - location of the main config file (in `nginx_dir` by default)
+- `nginx_default_configure_flags` - the default configure flags (before adding the modules), it is not recommended that you change this
+- `nginx_configure_flags` - a full list of the configure flags (including modules), do not change this unless you're sure you know what you are doing
+- `nginx_use_randomized_server_string` - Set the server header string to a string of random digits, default is false
+- `nginx_use_custom_server_string` - Set the server header string to a specific, custom string, the nginx_custom_server_string parameter, default is false
+- `nginx_custom_server_string` - The server header string to use when nginx_use_custom_server_string is set to true
 
-- `nginx_install_method` - "source" or "package"
+
+The following variables can be used to enable/disable modules to include in the build by setting them to true:
+
+- `nginx_include_http_stub_status_module` - Enabled (true) by default
+- `nginx_include_http_ssl_module` - Enabled (true) by default
+- `nginx_include_openssl` - Build ssl module by linking to latest openssl source, not system openssl library - Enabled (true) by default
+- `nginx_include_http_gzip_static_module` - Enabled (true) by default
+- `nginx_include_upload_progress_module` - Enabled (true) by default
+- `nginx_include_headers_more_module` - Enabled (true) by default
+- `nginx_include_http_auth_request_module` - Enabled (true) by default
+- `nginx_include_http_echo_module` - Enabled (true) by default
+- `nginx_include_google_perftools_module` - Enabled (true) by default
+- `nginx_include_ipv6_module` - Enabled (true) by default
+- `nginx_include_http_real_ip_module` - Enabled (true) by default
+- `nginx_include_http_spdy_module` - Enabled (true) by default
+- `nginx_include_http_perl_module` - Enabled (true) by default
+- `nginx_include_http_sub_module` - Enabled (true) by default
+- `nginx_include_naxsi_module` - Enabled (true) by default
+- `nginx_include_ngx_pagespeed_module` - Enabled (true) by default
+- `nginx_include_geoip_module` - Disabled (false) by default
+- `nginx_include_passenger_module` - Disabled (false) by default
+- `nginx_include_passenger_module` - Disabled (false) by default
+- `nginx_include_mail_pop3_module` - Disabled (false) by default
+- `nginx_include_mail_imap_module` - Disabled (false) by default
+- `nginx_include_mail_smtp_module` - Disabled (false) by default
+
+
+
+##### global configuration parameters (nginx.conf)
+
 - `nginx_user` - user Nginx will run as
 - `nginx_uid` - the uid for this user
 - `nginx_group` - Nginx group
@@ -70,88 +115,80 @@ Currently it's been developed for, and tested on Ubuntu. It is assumed to work o
             format: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
             options: null
             filename: "access.log"
-
-        #This will generate access_log /var/log/nginx/access.log combined
-        nginx_access_logs:
-          - name: "combined"
-            filename: "access.log"
-
 - `nginx_default_root` - the directory to place the default site
 - `nginx_default_enable` - whether or not to actually enable the defaul site
 
-##### source
-- `nginx_source_version` - the version of Nginx to install
-- `nginx_source_url` - URL for the Nginx source (versioned). By default it will get it from `nginx_source_version`
-- `nginx_source_prefix` - prefix for installing nginx from source (versioned)
-- `nginx_source_conf_path` - location of the main config file (in `nginx_dir` by default)
-- `nginx_source_default_configure_flags` - the default configure flags (before adding the modules). By default, this sets --prefix, --conf-path and --sbin-path
-- `nginx_source_modules_included` - see below
-- `nginx_source_modules_excluded` - a list of configure flags to exclude modules. Example: ["mail_pop3_module", "mail_imap_module", "mail_smtp_module"]
 
-`nginx_source_modules_included` is a dictionary (k,v) where k is the module name, and v its accompanying configure flag. All the possible options are given below:
 
-```yaml
-nginx_source_modules_included:
-  http_stub_status_module: "--with-http_stub_status_module"
-  http_ssl_module: "--with-http_ssl_module"
-  http_gzip_static_module: "--with-http_gzip_static_module"
-  upload_progress_module: "--add-module=/tmp/nginx-upload-progress-module-{{nginx_upload_progress_version}}"
-  headers_more_module: "--add-module=/tmp/headers-more-nginx-module-{{nginx_headers_more_version}}"
-  http_auth_request_module: "--add-module=/tmp/ngx_http_auth_request_module-{{nginx_auth_request_release}}"
-  http_echo_module: "--add-module=/tmp/echo-nginx-module-{{nginx_echo_version}}"
-  google_perftools_module: "--with-google_perftools_module"
-  ipv6_module: "--with-ipv6"
-  http_real_ip_module: "--with-http_realip_module"
-  http_spdy_module: "--with-http_spdy_module"
-  http_perl_module: "--with-http_perl_module"
-  naxsi_module: "--add-module=/tmp/naxsi-{{nginx_naxsi_version}}/naxsi_src"
-  ngx_pagespeed: "--add-module=/tmp/ngx_pagespeed-release-{{nginx_ngx_pagespeed_version}}-beta"
-  geopip: "--with-http_geoip_module"
-```
+##### Site Configuration
 
-##### Sites
 
-There is a possibility to configure a list of servers to be available (not yet enabled) as well. Just provide a list of dictionaries according to the following format:
+The role allows you to configure a list of sites (servers). Just provide a list of dictionaries according to the following format:
 
 ```yaml
 nginx_sites:
   - server:
       name: foo
       listen: 8080
+      error_page:
+        - "404	/error/404.html"
+        - "502	/error/502.html"
       server_name: localhost
-      location1:
-        name: "/"
-        try_files: "$uri $uri/ /index.html"
-        sendfile: "on"
+      locations:
+        - location:
+            match: /
+            try_files: "$uri $uri/ /index.html"
+            sendfile: "on"
   - server:
       name: bar
       listen: 8888
       server_name: webmail.localhost
-      location1:
-        name: /
-        try_files: "$uri $uri/ /index.html"
-      location2:
-        name: /images/
-        try_files: "$uri $uri/ /index.html"
+      locations:
+        - location:
+            match: /
+            try_files: "$uri $uri/ /index.html"
+        - location:
+            match: ' ~ image'
+            try_files: "$uri $uri/ /index.html"
 ```
 
-To enable or disable specific sites you can add prior used `server_name` attribute to the variables `nginx_enabled_sites` and `nginx_disabled_sites`.
+Note that this differs slightly from the format in the ANXS/nginx role. Locations are defined in a sub-list for each site, with a separate location
+entry for each one. Also, while the match condition was listed in the 'name' attribute in the ANXS/nginx role, here it should be specified with 'match'.
+
+Also, you can define multiple directives with the same name as a list, as with the error page shown in the site 'foo' above.
+
+
+Also worth noting: The site configuration will add the line: 
+
+``add_header X-Clacks-Overhead "GNU Terry Pratchett"``
+
+ by default. This is a tribute, to the 
+late, great Terry Pratchett. See further details at http://www.gnuterrypratchett.com/  You can disable this default by adding the variable `disable_gnu_terry_pratchett` under your server. However, I strongly urge you not to do this -- pick up a copy of *Going Postal* or *Thud* and judge for yourself.
+
+Finally, be aware that you can configure a site independently of this playbook by creating your own configuration file in the sites_available directory within the directory specified by the `nginx_dir` parameter. This file will not be modified/deleted unless that server is included in the nginx_sites list.
+
+##### Enabling / Disabling Sites
+
+To specify which sites are enabled, add the `server_name` attribute to the `nginx_enabled_sites` variable. All sites defined in the  `nginx_sites` variable that are not included in the `nginx_enabled_sites` variable will be disabled.
+
 
 ```yaml
 nginx_enabled_sites:
   - localhost
 ```
 
-```yaml
-nginx_disabled_sites:
-  - webmail.localhost
-```
 
-##### Monit ?
-You can put Nginx under monit monitoring protection, by setting `monit_protection: yes`
+##### Example Site
+
+If you don't specify any sites in the nginx_sites list, the playbook will configure an example site and enable it, served on port 80.  The files will be in the example directory under the directory specified by the `nginx_www_dir` variable. The example site is not the default nginx site, but rather shows a pink, ascii brontosaurus along with a message that your server is configured. The pink brontosaurus is a bit of an inside joke that I've been using in older deployment scripts for a while and I saw no harm in including it -- it's just the initial example site, and it is a bit of a change from the boring defaults.
 
 
-##### Modules
+
+##### Monit Support
+You can put Nginx under monit monitoring protection, by setting `nginx_monit_protection: true`
+
+
+##### Module specific parameters
 
 ###### gzip module
 - 'nginx_gzip' - whether to use gzip, can be "on" or "off"
@@ -194,14 +231,26 @@ You can put Nginx under monit monitoring protection, by setting `monit_protectio
 ###### naxsi module
 - `nginx_naxsi_version` - version of the naxsi module
 
-###### geoip module
-- `nginx_geoip: 'on'`
-- `nginx_geoip_country: "{{nginx_dir}}/geoip/GeoIP.dat"`
-- `nginx_geoip_city: "{{nginx_dir}}/geoip/GeoLiteCity.dat"`
+###### passenger module
+- `nginx_passenger_version` - The version of the passenger module ot install
+- `nginx_passenger_max_pool_size` - Max pool size, default is 6
+- `nginx_passenger_spawn_method` -  Spawn method, default is 'smart-lv2'
+- `nginx_passenger_buffer_response` - Whether to buffer the response, default is 'on'
+- `nginx_passenger_min_instances` - Minimum processes at a given time, default is 1
+- `nginx_passenger_max_instances_per_app` - Maximum processes per app, default is 0
+- `nginx_passenger_pool_idle_time` - Idle time, default is 300
+- `nginx_passenger_max_requests` - Max requests before shutting down process and starting a new one, default is 0 (unlimited)
+
+##### geoip module
+- `nginx_geoip_version` - Version of the module
+- `nginx_geoip_url` - URL from which to fetch the GeoIP data
+- `nginx_geoip_country_url` - URL from which to fetch Country GeoIP data 
+- `nginx_geoip_city_url` - URL from which to fetch City GeoIP data
 
 #### Thanks
 
-To the contributors:
+To the contributors of the original ANXS/nginx module this one is based on:
+- [ANXS](https://github.com/anxs)
 - [Jean-Denis Vauguet](https://github.com/chikamichi)
 
 
@@ -223,4 +272,4 @@ Licensed under the MIT License. See the LICENSE file for details.
 
 #### Feedback, bug-reports, requests, ...
 
-Are [welcome](https://github.com/ANXS/nginx/issues)!
+Are [welcome](https://github.com/ericpaulbishop/ansible-role-nginx-server/issues)!
